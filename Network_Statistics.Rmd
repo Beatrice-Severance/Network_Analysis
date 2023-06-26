@@ -1,0 +1,33 @@
+---
+title: "Network_Statistics"
+author: "Beatrice Severance, Zachary Noel"
+date: "2023-06-26"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+```{r}
+#calculate statistics; this is a computation-heavy step; run on server with 15 CPU cores
+net_env_comp<- netCompare(netprops_env, permTest = TRUE,
+                             lnormFit = FALSE, jaccQuant = 0.75,
+                             nPerm = 1000, cores = 30,
+                             seed = 20190101, adjust = "none")
+
+#rerun with multiple testing adjustment
+net_env_comp_adjust <- netCompare(netprops_env, permTest = TRUE,
+                                      lnormFit = FALSE, jaccQuant = 0.75,
+                                      nPerm = 1000, cores = 30,
+                                      seed = 20190101, adjust = "adaptBH",
+                                      assoPerm = net_env_comp$assoPerm)
+
+summary(net_env_comp, pAdjust = TRUE,
+        groupNames = c("Control", "Innoculated"), digitsPval = 6)
+
+summary(net_env_comp_adjust, pAdjust = TRUE,
+        groupNames = c("Control", "Innoculated"), digitsPval = 6)
+```

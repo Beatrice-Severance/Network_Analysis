@@ -1,0 +1,125 @@
+---
+title: "Network Analysis"
+author: "Beatrice Severance, Zachary Noel"
+date: "2023-06-26"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+```{r}
+#load dependencies
+
+library(devtools)
+library(SpiecEasi)
+library(phyloseq)
+library(microbiome)
+#devtools::install_github("stefpeschel/NetCoMi", 
+#                         dependencies = c("Depends", "Imports", "LinkingTo"),
+#                         repos = c("https://cloud.r-project.org/",
+#                                   BiocManager::repositories()))
+library(NetCoMi) #have to install this; see above command
+#library(RCX)
+
+#load in data
+net.c1 <- readRDS("21-22-fungi-phyloseq-clean.rds")
+
+#set detection and prevalence
+CF_prevalence <- core(net.c1, detection = 1^2, prevalence = 20/100)
+
+net.c1 <- prune_taxa(taxa_sums(CF_prevalence) >100, CF_prevalence)
+
+#extract count matrix and phenotypes
+counts <- t(net.c1@otu_table@.Data)
+colnames(counts) <- net.c1@tax_table@.Data[, "Genus"]
+dim(counts)
+
+pheno <- net.c1@sam_data@.Data
+names(pheno) <- net.c1@sam_data@names
+
+environment <- pheno$Fungicide
+
+#construct network with highest frequency more than 80
+net_env <- netConstruct(counts, group = environment, filtTax = "highestFreq",
+                           filtTaxPar = list(highestFreq = 80),
+                           zeroMethod = "none", normMethod = "none",
+                           measure = "spring",
+                           measurePar = list(nlambda = 50, rep.num = 50,
+                                             ncores=30),
+                           seed = 20190101)
+saveRDS(net_env, "FungicideNetwork.rds")
+
+netprops_env <- netAnalyze(net_env, clustMethod = "cluster_fast_greedy",
+                              hubPar = "eigenvector", hubQuant = 0.95,
+                              lnormFit = FALSE)
+saveRDS(netprops_env, "FungNet1.rds")
+
+summary(netprops_env, groupNames = c("Control", "Fungicide"))
+
+netprops_env <- readRDS("FungNet1.rds")
+
+#write.csv(netprops_env, "earlynet1.csv", row.names = FALSE)
+
+pdf("./biotic.pdf", width = 50, height = 25)
+
+p <- plot(netprops_env,
+          sameLayout = TRUE,
+          layoutGroup = 1,
+          repulsion = 1,
+          groupNames = c("Control","Fungicide"),
+          charToRm = "g__",
+          labelScale = FALSE,
+          nodeFilterPar = 20,
+          rmSingles = "inboth",
+          nodeSize = "eigen",
+          nodeColor = "cluster",
+          hubBorderCol = "gray40",
+          negDiffCol = TRUE,
+          cexLabels = 0.8,
+          #title1 = "Fungicide vs. Control Community Makeup",
+          #showTitle = TRUE,
+          edgeWidth = 1,
+          edgeTranspLow = 70,
+          edgeTranspHigh = 30,
+          cexNodes = 1,
+          cexHubs = 1.3,
+          cexTitle = 2.3)
+
+p <- plot(netprops_env,
+          sameLayout = TRUE,
+          layoutGroup = 1,
+          repulsion = 1,
+          groupNames = c("Control","Fungicide"),
+          shortenLabels = "intelligent",
+          labelLength = 14,
+          labelPattern = c(14,"'",3),
+          charToRm = "g__",
+          labelScale = FALSE,
+          nodeFilter = "none",
+          nodeFilterPar = 20,
+          rmSingles = "inboth",
+          nodeSize = "eigen",
+          nodeSizeSpread = 3,
+          nodeColor = "cluster",
+          colorVec = rainbow(12),
+          nodeTransp = 65,
+          hubTransp = 50,
+          hubBorderWidth = 2,
+          hubBorderCol = "gray40",
+          negDiffCol = TRUE,
+          edgeWidth = 1,
+          edgeTranspLow = 70,
+          edgeTranspHigh = 30,
+          cexNodes = 1,
+          cexHubs = 1.3,
+          cexTitle = 2.0,
+          cexLabels = 0.8,
+          showTitle = TRUE,
+          mar = c(1,1,3,1))
+dev.off()
+
+```
